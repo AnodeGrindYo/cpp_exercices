@@ -1,0 +1,89 @@
+#include "forminsert.h"
+#include <QDebug>
+
+formInsert::formInsert(QWidget *parent):QDialog(parent)
+{
+    qDebug() << "instance formInsert construite";
+
+
+    NomVille = new QLineEdit;
+    CodePostal = new QLineEdit;
+    modelD =new QSqlQueryModel;
+    modelD->setQuery("SELECT departement.nom FROM departement ORDER BY departement.nom;");
+    listeDepartement = new QComboBox;
+    listeDepartement->setModel(modelD);
+
+    Lon = new QLineEdit;
+    Lat = new QLineEdit;
+    apply = new QPushButton("&Apply");
+    accept = new QPushButton("&Quitter");
+
+    layout_line = new QFormLayout;
+    layout_line->addRow("Nom Ville", NomVille);
+    layout_line->addRow("Code Postal", CodePostal);
+    layout_line->addWidget(listeDepartement);
+    layout_line->addRow("Longitude", Lon);
+    layout_line->addRow("Latitude", Lat);
+
+    layout_buttons = new QHBoxLayout;
+    layout_buttons->addWidget(apply);
+    layout_buttons->addWidget(accept);
+
+    layout_main = new QVBoxLayout;
+    layout_main->addLayout(layout_line);
+    layout_main->addLayout(layout_buttons);
+
+    setLayout(layout_main);
+
+    setWindowTitle("Insérer une nouvelle ville");
+
+    connect(apply, SIGNAL(clicked()), this, SLOT(storeData()));
+    connect(accept, SIGNAL(clicked()), this, SLOT(accept()));
+}
+
+formInsert::~formInsert()
+{
+    qDebug() << "instance formInsert detruite";
+}
+
+void formInsert::storeData() // ajout d'une ville
+{
+    QString CityName;
+    QString DepartmentName;
+    QString DepartmentID;
+    QString ZipCode;
+    QString LON;
+    QString LAT;
+    QSqlQuery qdept;
+    QSqlQuery q;
+
+    if(NomVille->text().isEmpty() || CodePostal->text().isEmpty() || listeDepartement->currentText().isEmpty() /*|| Lon->text().isEmpty() || Lat->text().isEmpty()*/)
+    {
+        QMessageBox::warning(this, "Champs incomplets", "Veuillez ne pas laisser de champ vide");
+    }
+    else
+    {
+        CityName        = NomVille->text();
+        DepartmentName  = listeDepartement->currentText();
+        ZipCode         = CodePostal->text();
+        LON             = Lon->text();
+        LAT             = Lat->text();
+        qdept.prepare("SELECT departement.id FROM departement WHERE departement.nom LIKE '"+DepartmentName+"';");
+        qdept.exec();
+        QSqlRecord id = qdept.record();
+        qDebug() << "DepartmentName : " << DepartmentName;
+        //qDebug() << "Nombre de colonnes : " << id.count();
+        while(qdept.next())
+            DepartmentID    = qdept.value(0).toString();
+        qDebug() << "ID departement : "+DepartmentID;
+
+        qDebug() << "préparation de la requête d'ajout d'une ville";
+        q.prepare("INSERT INTO ville (nom, id_departement, cp, lat, lon) VALUES ('"+ CityName + "', '" + DepartmentID + "', '" + ZipCode + "', '" + LON + "', '" + LAT + "');");
+        q.exec();
+        qDebug() << "ville "+CityName+" ajoutée";
+        emit onApplyOK();
+        QMessageBox::information(this, "Congratulation !", "Yipee kai yay ! \nLa ville "+CityName+" a été rajouté avec succès !");
+        qDebug() << "ville ajoutée : "<< CityName + "', '" << DepartmentID + "', '" << ZipCode + "', '" << LON + "', '" << LAT;
+        close();
+    }
+}
